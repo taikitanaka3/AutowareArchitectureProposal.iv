@@ -13,30 +13,42 @@
 // limitations under the License.
 #pragma once
 
-#include "rclcpp/rclcpp.hpp"
+#include <string>
+#include <vector>
 
-#include "autoware_perception_msgs/msg/dynamic_object_array.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
+#define EIGEN_MPL2_ONLY
+#include "Eigen/Core"
+#include "Eigen/Geometry"
+
+#include "rclcpp/rclcpp.hpp"
 
 #include "lanelet2_core/LaneletMap.h"
 #include "lanelet2_extension/utility/query.hpp"
 #include "lanelet2_routing/RoutingGraph.h"
-#include "lanelet2_routing/RoutingGraphContainer.h"
 
-#include "scene_module/crosswalk/scene_crosswalk.hpp"
-#include "scene_module/crosswalk/util.hpp"
 #include "scene_module/scene_module_interface.hpp"
 
-class WalkwayModule : public SceneModuleInterface
+class StopLineModule : public SceneModuleInterface
 {
 public:
-public:
+  enum class State { APPROACH, STOP, START };
+
+  struct DebugData
+  {
+    double base_link2front;
+    std::vector<geometry_msgs::msg::Pose> stop_poses;
+    geometry_msgs::msg::Pose first_stop_pose;
+  };
+
   struct PlannerParam
   {
     double stop_margin;
+    double stop_check_dist;
   };
-  WalkwayModule(
-    const int64_t module_id, const lanelet::ConstLanelet & walkway,
+
+public:
+  StopLineModule(
+    const int64_t module_id, const lanelet::ConstLineString3d & stop_line,
     const PlannerParam & planner_param, const rclcpp::Logger logger,
     const rclcpp::Clock::SharedPtr clock);
 
@@ -49,9 +61,14 @@ public:
 private:
   int64_t module_id_;
 
-  enum class State { APPROACH, STOP, SURPASSED };
+  bool getBackwardPointFromBasePoint(
+    const Eigen::Vector2d & line_point1, const Eigen::Vector2d & line_point2,
+    const Eigen::Vector2d & base_point, const double backward_length,
+    Eigen::Vector2d & output_point);
 
-  lanelet::ConstLanelet walkway_;
+  geometry_msgs::msg::Point getCenterOfStopLine(const lanelet::ConstLineString3d & stop_line);
+
+  lanelet::ConstLineString3d stop_line_;
   State state_;
 
   // Parameter

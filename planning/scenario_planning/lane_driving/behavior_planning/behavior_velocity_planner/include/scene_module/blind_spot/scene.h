@@ -41,8 +41,7 @@ struct BlindSpotPolygons
 class BlindSpotModule : public SceneModuleInterface
 {
 public:
-  enum class State
-  {
+  enum class State {
     STOP = 0,
     GO,
   };
@@ -64,7 +63,7 @@ public:
    */
   class StateMachine
   {
-public:
+  public:
     StateMachine()
     {
       state_ = State::GO;
@@ -75,7 +74,7 @@ public:
     void setMarginTime(const double t);
     State getState();
 
-private:
+  private:
     State state_;                               //! current state
     double margin_time_;                        //! margin time when transit to Go from Stop
     std::shared_ptr<rclcpp::Time> start_time_;  //! first time received GO when STOP state
@@ -88,7 +87,7 @@ private:
     geometry_msgs::msg::Pose virtual_wall_pose;
     geometry_msgs::msg::Pose stop_point_pose;
     geometry_msgs::msg::Pose judge_point_pose;
-    lanelet::CompoundPolygon3d confict_area_for_blind_spot;
+    lanelet::CompoundPolygon3d conflict_area_for_blind_spot;
     lanelet::CompoundPolygon3d detection_area_for_blind_spot;
     autoware_planning_msgs::msg::PathWithLaneId spline_path;
     autoware_perception_msgs::msg::DynamicObjectArray conflicting_targets;
@@ -100,6 +99,7 @@ public:
     double stop_line_margin;  //! distance from auto-generated stopline to detection_area boundary
     double
       backward_length;  //! distance[m] from closest path point to the edge of beginning point in area
+    double ignore_width_from_center_line;  //! ignore width from center line from detection_area
     double
       max_future_movement_time;  //! maximum time[second] for considering future movement of object
   };
@@ -130,8 +130,8 @@ private:
   /**
    * @brief Check obstacle is in blind spot areas.
    * Condition1: Object's position is in broad blind spot area.
-   * Condition2: Object's predicted postition is in narrow blind spot area.
-   * If both coditions are met, return true
+   * Condition2: Object's predicted position is in narrow blind spot area.
+   * If both conditions are met, return true
    * @param path path information associated with lane id
    * @param objects_ptr dynamic objects
    * @param closest_idx closest path point index from ego car in path points
@@ -182,7 +182,7 @@ private:
   bool isTargetObjectType(const autoware_perception_msgs::msg::DynamicObject & object) const;
 
   /**
-   * @brief Check if at least one of object's predicted poistion is in area
+   * @brief Check if at least one of object's predicted position is in area
    * @param object Dynamic object
    * @param area Area defined by polygon
    * @return True when at least one of object's predicted position is in area
@@ -206,9 +206,20 @@ private:
     int * pass_judge_line_idx) const;
 
   /**
+   * @brief Insert a point to target path
+   * @param insert_idx_ip insert point index in path_ip
+   * @param path_ip interpolated path
+   * @param path target path for inserting a point
+   * @return inserted point idx in target path, return -1 when could not find valid index
+   */
+  int insertPoint(
+    const int insert_idx_ip, const autoware_planning_msgs::msg::PathWithLaneId path_ip,
+    autoware_planning_msgs::msg::PathWithLaneId * path) const;
+
+  /**
    * @brief Calculate first path index that is conflicting lanelets.
    * @param path     target path
-   * @param laneletss target lanelets
+   * @param lanelets target lanelets
    * @return path point index
    */
   boost::optional<int> getFirstPointConflictingLanelets(

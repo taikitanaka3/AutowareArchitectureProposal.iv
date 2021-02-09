@@ -34,9 +34,9 @@ std::pair<int, double> findWayPointAndDistance(
     const double dx = p.x() - input_path.points.at(i).point.pose.position.x;
     const double dy = p.y() - input_path.points.at(i).point.pose.position.y;
     const double dx_wp = input_path.points.at(i + 1).point.pose.position.x -
-      input_path.points.at(i).point.pose.position.x;
+                         input_path.points.at(i).point.pose.position.x;
     const double dy_wp = input_path.points.at(i + 1).point.pose.position.y -
-      input_path.points.at(i).point.pose.position.y;
+                         input_path.points.at(i).point.pose.position.y;
 
     const double theta = std::atan2(dy, dx) - std::atan2(dy_wp, dx_wp);
 
@@ -72,9 +72,9 @@ double calcArcLengthFromWayPoint(
   const size_t dst_idx = dst >= 0 ? static_cast<size_t>(dst) : 0;
   for (size_t i = src_idx; i < dst_idx; ++i) {
     const double dx_wp = input_path.points.at(i + 1).point.pose.position.x -
-      input_path.points.at(i).point.pose.position.x;
+                         input_path.points.at(i).point.pose.position.x;
     const double dy_wp = input_path.points.at(i + 1).point.pose.position.y -
-      input_path.points.at(i).point.pose.position.y;
+                         input_path.points.at(i).point.pose.position.y;
     length += std::hypot(dx_wp, dy_wp);
   }
   return length;
@@ -118,7 +118,9 @@ TrafficLightModule::TrafficLightModule(
   lane_id_(lane.id()),
   traffic_light_reg_elem_(traffic_light_reg_elem),
   lane_(lane),
-  state_(State::APPROACH)
+  state_(State::APPROACH),
+  is_prev_state_stop_(false),
+  input_(Input::PERCEPTION)
 {
   planner_param_ = planner_param;
 }
@@ -152,8 +154,13 @@ bool TrafficLightModule::modifyPathVelocity(
   if (state_ == State::GO_OUT) {
     return true;
   } else if (state_ == State::APPROACH) {
-    if (!getHighestConfidenceTrafficLightState(traffic_lights, tl_state_)) {
+    if (getExternalTrafficLightState(traffic_lights, tl_state_)) {
+      input_ = Input::EXTERNAL;
+    } else if (getHighestConfidenceTrafficLightState(traffic_lights, tl_state_)) {
+      input_ = Input::PERCEPTION;
+    } else {
       // Don't stop when UNKNOWN or TIMEOUT as discussed at #508
+      input_ = Input::NONE;
       return true;
     }
 
@@ -169,16 +176,14 @@ bool TrafficLightModule::modifyPathVelocity(
           Eigen::Vector2d dead_line_point;
           size_t dead_line_point_idx;
           if (!createTargetPoint(
-              input_path, stop_line, -2.0 /*overline margin*/, dead_line_point_idx,
-              dead_line_point))
-          {
+                input_path, stop_line, -2.0 /*overline margin*/, dead_line_point_idx,
+                dead_line_point)) {
             continue;
           }
 
           if (isOverDeadLine(
-              self_pose.pose, input_path, dead_line_point_idx, dead_line_point,
-              dead_line_range))
-          {
+                self_pose.pose, input_path, dead_line_point_idx, dead_line_point,
+                dead_line_range)) {
             state_ = State::GO_OUT;
             return true;
           }
@@ -188,17 +193,16 @@ bool TrafficLightModule::modifyPathVelocity(
         Eigen::Vector2d stop_line_point;
         size_t stop_line_point_idx;
         if (!createTargetPoint(
-            input_path, stop_line, planner_param_.stop_margin, stop_line_point_idx,
-            stop_line_point))
-        {
+              input_path, stop_line, planner_param_.stop_margin, stop_line_point_idx,
+              stop_line_point)) {
           continue;
         }
         // judge pass or stop
         if (
+          planner_param_.enable_pass_judge && input_ == Input::PERCEPTION &&
           (calcSignedArcLength(input_path, self_pose.pose, stop_line_point) <
-          pass_judge_line_distance + planner_data_->vehicle_info_.max_longitudinal_offset_m_) &&
-          (3.0 /* =10.8km/h */ < self_twist_ptr->twist.linear.x))
-        {
+           pass_judge_line_distance + planner_data_->vehicle_info_.max_longitudinal_offset_m_) &&
+          (3.0 /* =10.8km/h */ < self_twist_ptr->twist.linear.x && !is_prev_state_stop_)) {
           RCLCPP_WARN_THROTTLE(
             logger_, *clock_, 1000 /* ms */, "vehicle is over stop border (%f m)",
             pass_judge_line_distance + planner_data_->vehicle_info_.max_longitudinal_offset_m_);
@@ -206,11 +210,11 @@ bool TrafficLightModule::modifyPathVelocity(
         } else {
           // Add Stop WayPoint
           if (!insertTargetVelocityPoint(
-              input_path, stop_line, planner_param_.stop_margin, 0.0, *path))
-          {
+                input_path, stop_line, planner_param_.stop_margin, 0.0, *path)) {
             RCLCPP_WARN(logger_, "cannot insert stop waypoint");
             continue;
           }
+          is_prev_state_stop_ = true;
         }
 
         /* get stop point and stop factor */
@@ -221,6 +225,7 @@ bool TrafficLightModule::modifyPathVelocity(
         return true;
       }
     } else {
+      is_prev_state_stop_ = false;
       return true;
     }
   }
@@ -289,21 +294,18 @@ bool TrafficLightModule::isStopRequired(
 
   if (
     turn_direction == "right" &&
-    hasLamp(tl_state, autoware_perception_msgs::msg::LampState::RIGHT))
-  {
+    hasLamp(tl_state, autoware_perception_msgs::msg::LampState::RIGHT)) {
     return false;
   }
 
   if (
-    turn_direction == "left" && hasLamp(tl_state, autoware_perception_msgs::msg::LampState::LEFT))
-  {
+    turn_direction == "left" && hasLamp(tl_state, autoware_perception_msgs::msg::LampState::LEFT)) {
     return false;
   }
 
   if (
     turn_direction == "straight" &&
-    hasLamp(tl_state, autoware_perception_msgs::msg::LampState::UP))
-  {
+    hasLamp(tl_state, autoware_perception_msgs::msg::LampState::UP)) {
     return false;
   }
 
@@ -341,8 +343,7 @@ bool TrafficLightModule::getHighestConfidenceTrafficLightState(
 
     if (
       tl_state.lamp_states.empty() ||
-      tl_state.lamp_states.front().type == autoware_perception_msgs::msg::LampState::UNKNOWN)
-    {
+      tl_state.lamp_states.front().type == autoware_perception_msgs::msg::LampState::UNKNOWN) {
       reason = "LampStateUnknown";
       continue;
     }
@@ -369,7 +370,7 @@ bool TrafficLightModule::getHighestConfidenceTrafficLightState(
 bool TrafficLightModule::insertTargetVelocityPoint(
   const autoware_planning_msgs::msg::PathWithLaneId & input,
   const boost::geometry::model::linestring<boost::geometry::model::d2::point_xy<double>> &
-  stop_line,
+    stop_line,
   const double & margin, const double & velocity,
   autoware_planning_msgs::msg::PathWithLaneId & output)
 {
@@ -401,7 +402,9 @@ bool TrafficLightModule::insertTargetVelocityPoint(
     debug_data_.first_stop_pose = target_point_with_lane_id.point.pose;
   }
   // -- debug code --
-  if (velocity == 0.0) {debug_data_.stop_poses.push_back(target_point_with_lane_id.point.pose);}
+  if (velocity == 0.0) {
+    debug_data_.stop_poses.push_back(target_point_with_lane_id.point.pose);
+  }
   // ----------------
   return true;
 }
@@ -409,7 +412,7 @@ bool TrafficLightModule::insertTargetVelocityPoint(
 bool TrafficLightModule::createTargetPoint(
   const autoware_planning_msgs::msg::PathWithLaneId & input,
   const boost::geometry::model::linestring<boost::geometry::model::d2::point_xy<double>> &
-  stop_line,
+    stop_line,
   const double & margin, size_t & target_point_idx, Eigen::Vector2d & target_point)
 {
   for (size_t i = 0; i < input.points.size() - 1; ++i) {
@@ -419,7 +422,9 @@ bool TrafficLightModule::createTargetPoint(
     std::vector<Point> collision_points;
     bg::intersection(stop_line, path_line, collision_points);
 
-    if (collision_points.empty()) {continue;}
+    if (collision_points.empty()) {
+      continue;
+    }
 
     // check nearest collision point
     Point nearest_collision_point;
@@ -474,14 +479,14 @@ bool TrafficLightModule::createTargetPoint(
       }
     }
     // create target point
-    getBackwordPointFromBasePoint(
+    getBackwardPointFromBasePoint(
       point2, point1, point2, std::fabs(length_sum - target_length), target_point);
     return true;
   }
   return false;
 }
 
-bool TrafficLightModule::getBackwordPointFromBasePoint(
+bool TrafficLightModule::getBackwardPointFromBasePoint(
   const Eigen::Vector2d & line_point1, const Eigen::Vector2d & line_point2,
   const Eigen::Vector2d & base_point, const double backward_length, Eigen::Vector2d & output_point)
 {
@@ -496,7 +501,7 @@ bool TrafficLightModule::hasLamp(
 {
   const auto it_lamp = std::find_if(
     tl_state.lamp_states.begin(), tl_state.lamp_states.end(),
-    [&lamp_color](const auto & x) {return x.type == lamp_color;});
+    [&lamp_color](const auto & x) { return x.type == lamp_color; });
 
   return it_lamp != tl_state.lamp_states.end();
 }
@@ -511,4 +516,44 @@ geometry_msgs::msg::Point TrafficLightModule::getTrafficLightPosition(
     tl_center.z += tl_point.z() / (*traffic_light.lineString()).size();
   }
   return tl_center;
+}
+
+bool TrafficLightModule::getExternalTrafficLightState(
+  const lanelet::ConstLineStringsOrPolygons3d & traffic_lights,
+  autoware_perception_msgs::msg::TrafficLightStateStamped & external_tl_state)
+{
+  // search traffic light state
+  bool found = false;
+  std::string reason;
+  for (const auto & traffic_light : traffic_lights) {
+    // traffic light must be linestrings
+    if (!traffic_light.isLineString()) {
+      reason = "NotLineString";
+      continue;
+    }
+
+    const int id = static_cast<lanelet::ConstLineString3d>(traffic_light).id();
+    const auto tl_state_stamped = planner_data_->getExternalTrafficLightState(id);
+    if (!tl_state_stamped) {
+      reason = "TrafficLightStateNotFound";
+      continue;
+    }
+
+    const auto header = tl_state_stamped->header;
+    const auto tl_state = tl_state_stamped->state;
+    if (!((clock_->now() - header.stamp).seconds() < planner_param_.external_tl_state_timeout)) {
+      reason = "TimeOut";
+      continue;
+    }
+
+    external_tl_state = *tl_state_stamped;
+    found = true;
+  }
+  if (!found) {
+    RCLCPP_WARN_THROTTLE(
+      logger_, *clock_, 1000 /* ms */,
+      "[traffic_light] cannot find external traffic light lamp state (%s).", reason.c_str());
+    return false;
+  }
+  return true;
 }
