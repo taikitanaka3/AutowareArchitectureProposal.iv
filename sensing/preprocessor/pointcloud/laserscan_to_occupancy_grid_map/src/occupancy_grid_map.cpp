@@ -1,60 +1,55 @@
-/*********************************************************************
- *
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2008, 2013, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
- * Author: Eitan Marder-Eppstein
- *         David V. Lu!!
- *********************************************************************/
+// Software License Agreement (BSD License)
+//
+//  Copyright (c) 2008, 2013, Willow Garage, Inc.
+//  All rights reserved.
+//
+//  Redistribution and use in source and binary forms, with or without
+//  modification, are permitted provided that the following conditions
+//  are met:
+//
+//   * Redistributions of source code must retain the above copyright
+//     notice, this list of conditions and the following disclaimer.
+//   * Redistributions in binary form must reproduce the above
+//     copyright notice, this list of conditions and the following
+//     disclaimer in the documentation and/or other materials provided
+//     with the distribution.
+//   * Neither the name of Willow Garage, Inc. nor the names of its
+//     contributors may be used to endorse or promote products derived
+//     from this software without specific prior written permission.
+//
+//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+//  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+//  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+//  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+//  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+//  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+//  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+//  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+//  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+//  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+//  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+//  POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Eitan Marder-Eppstein
+//         David V. Lu!!
 
-/*
- * Copyright 2020 Tier IV, Inc. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2020 TierIV
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include <laserscan_to_occupancy_grid_map/cost_value.h>
-#include <laserscan_to_occupancy_grid_map/occupancy_grid_map.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
+#include <laserscan_to_occupancy_grid_map/cost_value.hpp>
+#include <laserscan_to_occupancy_grid_map/occupancy_grid_map.hpp>
+#include <sensor_msgs/msg/point_cloud2_iterator.hpp>
 
 namespace costmap_2d
 {
@@ -75,8 +70,9 @@ void OccupancyGridMap::raytrace2D(
   // occupied
   MarkCell marker(costmap_, occupancy_cost_value::LETHAL_OBSTACLE);
   for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(pointcloud, "x"),
-       iter_y(pointcloud, "y");
-       iter_x != iter_x.end(); ++iter_x, ++iter_y) {
+    iter_y(pointcloud, "y");
+    iter_x != iter_x.end(); ++iter_x, ++iter_y)
+  {
     unsigned int mx, my;
     if (!worldToMap(*iter_x, *iter_y, mx, my)) {
       ROS_DEBUG("Computing map coords failed");
@@ -107,8 +103,9 @@ void OccupancyGridMap::raytraceFreespace(
   const double map_end_y = origin_y + size_y_ * resolution_;
 
   for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(pointcloud, "x"),
-       iter_y(pointcloud, "y");
-       iter_x != iter_x.end(); ++iter_x, ++iter_y) {
+    iter_y(pointcloud, "y");
+    iter_x != iter_x.end(); ++iter_x, ++iter_y)
+  {
     double wx = *iter_x;
     double wy = *iter_y;
 
@@ -145,7 +142,7 @@ void OccupancyGridMap::raytraceFreespace(
     unsigned int x1, y1;
 
     // check for legality just in case
-    if (!worldToMap(wx, wy, x1, y1)) continue;
+    if (!worldToMap(wx, wy, x1, y1)) {continue;}
 
     constexpr unsigned int cell_raytrace_range = 10000;  // large number to ignore range threshold
     MarkCell marker(costmap_, occupancy_cost_value::FREE_SPACE);
