@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "geometry_msgs/msg/pose.h"
 #include <costmap_2d/costmap_2d_ros.hpp>
 #include <laserscan_to_occupancy_grid_map/cost_value.hpp>
 
@@ -29,7 +30,7 @@ public:
     };
     virtual ~OccupancyGridMapUpdaterInterface() = default;
     virtual bool update(
-      const Costmap2D & oneshot_occupancy_grid_map, const geometry_msgs::Pose & robot_pose) = 0;
+      const Costmap2D & oneshot_occupancy_grid_map, const geometry_msgs::msg::pose & robot_pose) = 0;
   };
 
 }  // namespace costmap_2d
