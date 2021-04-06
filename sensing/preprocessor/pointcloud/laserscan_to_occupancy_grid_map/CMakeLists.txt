@@ -1,22 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(laserscan_to_occupancy_grid_map)
 
-find_package(catkin REQUIRED COMPONENTS
-  nodelet
-  roscpp
-  sensor_msgs
-  laser_geometry
-  nav_msgs
-  pcl_ros
-  tf2
-  tf2_ros
-  tf2_sensor_msgs
-  tf2_geometry_msgs
-  visualization_msgs
-  costmap_2d
-)
-
 find_package(Eigen3 REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+
 
 catkin_package(
   INCLUDE_DIRS include
@@ -24,6 +11,7 @@ catkin_package(
   CATKIN_DEPENDS roscpp nodelet sensor_msgs laser_geometry nav_msgs pcl_ros tf2 tf2_ros tf2_sensor_msgs tf2_geometry_msgs visualization_msgs costmap_2d
 
 )
+ament_auto_find_build_dependencies()
 
 include_directories(
   include
@@ -48,9 +36,6 @@ install(TARGETS laserscan_to_occupancy_grid_map laserscan_to_occupancy_grid_map_
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-)
-install(FILES nodelets.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
 install(
